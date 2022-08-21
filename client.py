@@ -56,7 +56,7 @@ def sending():
             pass
 
 def receiving():
-    app.run(port=const.registry[me][1])
+    app.run(host="0.0.0.0",port=const.registry[me][1])
 
 if __name__ == '__main__':
     
