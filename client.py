@@ -5,49 +5,63 @@ from flask import request
 import sys
 import const 
 import requests
+import threading
 # Handle interactive loop
 
-
+app = Flask(__name__)
 
 @app.route('/chat',methods=['POST'])
 def createEmp():
 
-    data = {
+    dados = {
     'dest':request.json['dest'],
     'name':request.json['name'],
     'msg':request.json['msg'],
+    'id':request.json['id'],
     }
-    count +=1
-    dest_addr = const.registry[data.dest] # get address of destination in the registry
-    resposta = requests.post(dest_addr, data=data) #2
-    print("RELAYING MSG: " + msg + " - FROM: " + src + " - TO: " + dest) # just print the message and destination
-    return jsonify(data)
-
-while True:
-    me = str(sys.argv[1]) # User's name (as registered in the registry. E.g., Alice, Bob, ...)
-    dest = ''
-    id = ''
-    reply = input("REPLY? (y or n): ")
-
-    if (reply == 'y'):
-        id = input("ENTER MESSAGE ID: ")
+    #resposta = requests.post(dest_addr, data=data) #2
+    if(request.json['id'] == ''):
+        print(str(request.json['count']) + " - MSG: " + request.json['msg'] + " - FROM: " +  request.json['name']) # just print the message and destination
     else:
-        dest = input("ENTER DESTINATION: ")
-    msg = input("ENTER MESSAGE: ")
+        print("RESPONDING TO: " + request.json['id'] +" - MSG: " + request.json['msg'] + " - FROM: " +  request.json['name']) # just print the message and destination
+    return "ACK"
+
+me = str(sys.argv[1]) # User's name (as registered in the registry. E.g., Alice, Bob, ...)
+
+def sending():
+    while True:
+        dest = ''
+        id = ''
+        reply = input("REPLY? (y or n): \n")
+
+        if (reply == 'y'):
+            id = input("ENTER MESSAGE ID: \n")
+        dest = input("ENTER DESTINATION: \n")
+        msg = input("ENTER MESSAGE: \n")
+
+        data = {
+            'dest':dest,
+            'name':me,
+            'msg':msg,
+            'ip':const.registry[me][0],
+            'id':id,
+        }
+
+        # Send message and wait for confirmation
+        resposta = requests.post(const.CHAT_SERVER_HOST+":"+str(const.CHAT_SERVER_PORT)+'/chat', json = data) #2
+        if resposta.text != "ACK":
+            print("Error: Server did not accept the message (dest does not exist?)")
+        else:
+            #print("Received Ack from server")
+            pass
+
+def receiving():
+    app.run(port=const.registry[me][1])
+
+if __name__ == '__main__':
     
-    me = str(sys.argv[1]) # User's name (as registered in the registry. E.g., Alice, Bob, ...)
-    data = {
-    'dest':dest,
-    'name':me,
-    'msg':request.json['msg'],
-    'ip':const.registry[me][0],
-    'id':id
-    }
+    send = threading.Thread(target=sending)
+    send.start()
     
-    # Send message and wait for confirmation
-    resposta = requests.post(const.CHAT_SERVER_HOST, data=data) #2
-    if resposta != "ACK":
-        print("Error: Server did not accept the message (dest does not exist?)")
-    else:
-        #print("Received Ack from server")
-        pass
+    receive = threading.Thread(target=receiving)
+    receive.start()
